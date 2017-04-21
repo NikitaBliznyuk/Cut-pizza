@@ -7,7 +7,8 @@ public class PizzaCutter : MonoBehaviour
     public GameObject pizzaPart;
 
     private MeshFilter meshFilter;
-    private MeshRenderer meshRenderer;
+
+    private InputManager manager;
 
     private int vertexCount;
 
@@ -16,11 +17,17 @@ public class PizzaCutter : MonoBehaviour
     private void Start()
     {
         meshFilter = GetComponent<MeshFilter>();
-        meshRenderer = GetComponent<MeshRenderer>();
+        manager = GetComponent<InputManager>();
 
         vertexCount = meshFilter.mesh.vertexCount;
+    }
 
-        CutPizza(new List<Vector3>() { new Vector3(0.1f, 0.5f), new Vector3(0.45f, 0.2f) });
+    private void Update()
+    {
+        if(manager.HaveInput)
+        {
+            CutPizza(manager.MouseInput);
+        }
     }
 
     public void CutPizza(List<Vector3> input)
@@ -111,7 +118,6 @@ public class PizzaCutter : MonoBehaviour
         var cuttedPart = Instantiate(pizzaPart);
         cuttedPart.transform.position = transform.position;
         var cuttedFilter = cuttedPart.GetComponent<MeshFilter>();
-        var cuttedRenderer = cuttedPart.GetComponent<MeshRenderer>();
 
         cuttedFilter.mesh.triangles = cuttedTriangles.ToArray();
     }

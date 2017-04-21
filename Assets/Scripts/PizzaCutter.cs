@@ -11,8 +11,13 @@ public class PizzaCutter : MonoBehaviour
     private InputManager manager;
 
     private int vertexCount;
+    private int trianglesCount;
 
     private int indexOfCenter = 2; // hardcoded index by Blender :|
+
+    private float percents = 100.0f;
+
+    public float Percents { get { return percents; } }
 
     private void Start()
     {
@@ -20,6 +25,7 @@ public class PizzaCutter : MonoBehaviour
         manager = GetComponent<InputManager>();
 
         vertexCount = meshFilter.mesh.vertexCount;
+        trianglesCount = meshFilter.mesh.triangles.Length;
     }
 
     private void Update()
@@ -27,6 +33,11 @@ public class PizzaCutter : MonoBehaviour
         if(manager.HaveInput)
         {
             CutPizza(manager.MouseInput);
+        }
+
+        if((int)percents == 0)
+        {
+            Destroy(gameObject);
         }
     }
 
@@ -111,13 +122,14 @@ public class PizzaCutter : MonoBehaviour
             return;
         }
 
-        Debug.Log(newTriangles.Count);
+        percents = newTriangles.Count / (float)trianglesCount * 100.0f;
 
         meshFilter.mesh.triangles = newTriangles.ToArray();
 
         var cuttedPart = Instantiate(pizzaPart);
         cuttedPart.transform.position = transform.position;
         var cuttedFilter = cuttedPart.GetComponent<MeshFilter>();
+        cuttedPart.GetComponent<PartBehaviour>().Direction = ((input[0] + input[1]) / 2).normalized;
 
         cuttedFilter.mesh.triangles = cuttedTriangles.ToArray();
     }

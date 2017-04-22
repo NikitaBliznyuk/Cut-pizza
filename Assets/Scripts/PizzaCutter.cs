@@ -30,17 +30,26 @@ public class PizzaCutter : MonoBehaviour
 
     private void Update()
     {
-        if(manager.HaveInput)
+        if(manager.HaveInput) // if player entered some input, then we need to cut pizza
         {
             CutPizza(manager.MouseInput);
         }
 
-        if((int)percents == 0)
+        CheckPizzaState(); // check, if our pizza done
+    }
+
+    /** Ckecks, if amount of percent is equal to zero.
+     */
+    private void CheckPizzaState()
+    {
+        if ((int)percents == 0)
         {
             Destroy(gameObject);
         }
     }
-
+    
+    /** Cut pizza with inputs.
+     */
     public void CutPizza(List<Vector3> input)
     {
         var vertices = meshFilter.mesh.vertices;
@@ -50,11 +59,10 @@ public class PizzaCutter : MonoBehaviour
 
         if (nearestPoints[0] == nearestPoints[1]) // to prevent tapping on screen
         {
-            Debug.Log("Try again!");
             return;
         }
 
-        if (nearestPoints[0] > nearestPoints[1])
+        if (nearestPoints[0] > nearestPoints[1]) // sort inputs (smaller to right)
         {
             var temp = nearestPoints[0];
             nearestPoints[0] = nearestPoints[1];
@@ -62,12 +70,12 @@ public class PizzaCutter : MonoBehaviour
         }
 
         var delta = Mathf.Abs(nearestPoints[1] - nearestPoints[0]);
-        var startIndex = delta > (vertexCount - delta) ? nearestPoints[1] : nearestPoints[0];
+        var startIndex = delta > (vertexCount - delta) ? nearestPoints[1] : nearestPoints[0]; // choosing direction of moving
         var endIndex = startIndex == nearestPoints[0] ? nearestPoints[1] : nearestPoints[0];
-        var startTriangleIndex = 0;
-        var endTriangleIndex = 0;
+        var startTriangleIndex = 0; // triangle index, that starts cutted part
+        var endTriangleIndex = 0; // triangle index, that ends cutted part
 
-        for (int i = 0; i < triangles.Length; i += 3)
+        for (int i = 0; i < triangles.Length; i += 3) // finding those indeces
         {
             if (triangles[i] == startIndex)
                 startTriangleIndex = i;
@@ -75,65 +83,71 @@ public class PizzaCutter : MonoBehaviour
                 endTriangleIndex = i;
         }
 
-        Debug.Log("Start indexes: " + startIndex + " " + endIndex);
-        Debug.Log("Start triangle indexes: " + startTriangleIndex + " " + endTriangleIndex
-            + "  VALUES: " + triangles[startTriangleIndex] + " " + triangles[endTriangleIndex + 1]);
+        List<int> newTriangles, cuttedTriangles;
+        SplitMesh(triangles, startTriangleIndex, endTriangleIndex, out newTriangles, out cuttedTriangles);
 
-        var newTriangles = new List<int>();
-        var cuttedTriangles = new List<int>();
+        percents = newTriangles.Count / (float)trianglesCount * 100.0f; // updating count of percents left
+
+        meshFilter.mesh.triangles = newTriangles.ToArray(); // updating current pizza mesh
+
+        CreateCuttedPart(cuttedTriangles.ToArray(), ((input[0] + input[1]) / 2).normalized);
+    }
+
+    /** Split triangles by 2 started from startIndex and ended at endIndex. 
+    */
+    private void SplitMesh(int[] triangles, int startIndex, int endIndex, out List<int> firstPart, out List<int> secondPart)
+    {
+        firstPart = new List<int>();
+        secondPart = new List<int>();
 
         for (int i = 0; i < triangles.Length; i += 3)
         {
-            if(startTriangleIndex < endTriangleIndex)
+            if (startIndex < endIndex)
             {
-                if(i >= startTriangleIndex && (i + 1) <= endTriangleIndex)
+                if (i >= startIndex && (i + 1) <= endIndex)
                 {
-                    cuttedTriangles.Add(triangles[i]);
-                    cuttedTriangles.Add(triangles[i + 1]);
-                    cuttedTriangles.Add(triangles[i + 2]);
+                    secondPart.Add(triangles[i]);
+                    secondPart.Add(triangles[i + 1]);
+                    secondPart.Add(triangles[i + 2]);
                 }
                 else
                 {
-                    newTriangles.Add(triangles[i]);
-                    newTriangles.Add(triangles[i + 1]);
-                    newTriangles.Add(triangles[i + 2]);
+                    firstPart.Add(triangles[i]);
+                    firstPart.Add(triangles[i + 1]);
+                    firstPart.Add(triangles[i + 2]);
                 }
             }
             else
             {
-                if (i >= endTriangleIndex && (i + 1) <= startTriangleIndex)
+                if (i >= endIndex && (i + 1) <= startIndex)
                 {
-                    newTriangles.Add(triangles[i]);
-                    newTriangles.Add(triangles[i + 1]);
-                    newTriangles.Add(triangles[i + 2]);
+                    firstPart.Add(triangles[i]);
+                    firstPart.Add(triangles[i + 1]);
+                    firstPart.Add(triangles[i + 2]);
                 }
                 else
                 {
-                    cuttedTriangles.Add(triangles[i]);
-                    cuttedTriangles.Add(triangles[i + 1]);
-                    cuttedTriangles.Add(triangles[i + 2]);
+                    secondPart.Add(triangles[i]);
+                    secondPart.Add(triangles[i + 1]);
+                    secondPart.Add(triangles[i + 2]);
                 }
             }
         }
-
-        if (cuttedTriangles.Count == 0)
-        {
-            Debug.Log("Try again!");
-            return;
-        }
-
-        percents = newTriangles.Count / (float)trianglesCount * 100.0f;
-
-        meshFilter.mesh.triangles = newTriangles.ToArray();
-
-        var cuttedPart = Instantiate(pizzaPart);
-        cuttedPart.transform.position = transform.position;
-        var cuttedFilter = cuttedPart.GetComponent<MeshFilter>();
-        cuttedPart.GetComponent<PartBehaviour>().Direction = ((input[0] + input[1]) / 2).normalized;
-
-        cuttedFilter.mesh.triangles = cuttedTriangles.ToArray();
     }
 
+    /** Creates cutted part with moving direction.
+     */
+    private void CreateCuttedPart(int[] triangles, Vector3 direction)
+    {
+        var cuttedPart = Instantiate(pizzaPart); // instantiating cutted part
+        var cuttedFilter = cuttedPart.GetComponent<MeshFilter>();
+        cuttedPart.GetComponent<PartBehaviour>().Direction = direction;
+
+        cuttedFilter.mesh.triangles = triangles;
+    }
+
+    /** Calculating nearest points of mesh to inputs. 
+     */
     private int[] GetNearPoints(List<Vector3> input, Vector3[] vertices)
     {
         var points = new int[input.Count];
